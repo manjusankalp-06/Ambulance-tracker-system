@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Map - FastAid</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- PWA Meta Tags -->
+<meta name="theme-color" content="#1e3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FirstAid">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+<!-- App Icons -->
+<link rel="icon" type="image/webp" href="{{ url_for('static', filename='images/icon_amb.webp') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/icon_amb.webp') }}">
+
+
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .info-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .route-segment {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .route-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>🗺️ Real Route Map - Request #{{ request[0] }}</h2>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+        </div>
+
+        <!-- Route Information Card -->
+        <div class="info-card">
+            <h4>📋 Route Details (Actual Road Route)</h4>
+            <div class="row mt-3">
+                <div class="col-md-3">
+                    <strong>Patient:</strong> {{ request[2] or 'Unknown' }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Status:</strong> 
+                    <span class="badge bg-primary">{{ request[11] or 'Pending' }}</span>
+                </div>
+                <div class="col-md-3">
+                    <strong>Real Distance:</strong> 
+                    <span class="text-primary" style="font-size: 1.2em; font-weight: bold;">
+                        {{ "%.1f"|format(request[19] or 0) }} km
+                    </span>
+                </div>
+                <div class="col-md-3">
+                    <strong>Real ETA:</strong> 
+                    <span class="text-warning" style="font-size: 1.2em; font-weight: bold;">
+                        {{ "%.0f"|format(request[20] or 0) }} min
+                    </span>
+                </div>
+            </div>
+
+            <!-- Route Segments -->
+            <div class="mt-4">
+                <h5>🛣️ Route Breakdown:</h5>
+                <div class="route-segment">
+                    <span class="route-icon">🚗</span>
+                    <div>
+                        <strong>Segment 1: Driver → Patient</strong><br>
+                        <small>Driver: ({{ request[17] or 'N/A' }}, {{ request[18] or 'N/A' }})</small>
+                    </div>
+                </div>
+                <div class="route-segment">
+                    <span class="route-icon">👤</span>
+                    <div>
+                        <strong>Segment 2: Patient → Hospital</strong><br>
+                        <small>Patient: ({{ request[7] }}, {{ request[8] }})</small>
+                    </div>
+                </div>
+                <div class="route-segment">
+                    <span class="route-icon">🏥</span>
+                    <div>
+                        <strong>Destination: Hospital</strong><br>
+                        <small>Hospital: ({{ request[9] }}, {{ request[10] }})</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                <strong>✓ Note:</strong> Shortest Path Found!</strong> The optimal route has been calculated using real road networks. Green line: Driver → Patient | Blue line: Patient → Hospital
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="info-card">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Coordinates from backend (CORRECTED INDICES)
+        const driverLat = {{ request[17] or 'null' }};   // driver_lat
+        const driverLng = {{ request[18] or 'null' }};   // driver_lng
+        const patientLat = {{ request[7] }};             // origin_lat
+        const patientLng = {{ request[8] }};             // origin_lng
+        const hospitalLat = {{ request[9] }};            // destination_lat
+        const hospitalLng = {{ request[10] }};           // destination_lng
+
+        console.log('Driver:', driverLat, driverLng);
+        console.log('Patient:', patientLat, patientLng);
+        console.log('Hospital:', hospitalLat, hospitalLng);
+
+        // Initialize map (center on patient location)
+        const map = L.map('map').setView([patientLat, patientLng], 12);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Custom icons
+        const driverIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        const patientIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        const hospitalIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        // Add markers
+        const markers = [];
+        
+        if (driverLat && driverLng) {
+            const driverMarker = L.marker([driverLat, driverLng], {icon: driverIcon})
+                .addTo(map)
+                .bindPopup('<b>🚗 Driver Location</b><br>Lat: ' + driverLat.toFixed(4) + '<br>Lng: ' + driverLng.toFixed(4));
+            markers.push([driverLat, driverLng]);
+        }
+
+        const patientMarker = L.marker([patientLat, patientLng], {icon: patientIcon})
+            .addTo(map)
+            .bindPopup('<b>👤 Patient Location</b><br>Lat: ' + patientLat.toFixed(4) + '<br>Lng: ' + patientLng.toFixed(4));
+        markers.push([patientLat, patientLng]);
+
+        const hospitalMarker = L.marker([hospitalLat, hospitalLng], {icon: hospitalIcon})
+            .addTo(map)
+            .bindPopup('<b>🏥 Hospital</b><br>Lat: ' + hospitalLat.toFixed(4) + '<br>Lng: ' + hospitalLng.toFixed(4));
+        markers.push([hospitalLat, hospitalLng]);
+
+        // Function to draw routes
+        async function drawRealRoutes() {
+            if (!driverLat || !driverLng) {
+                console.log('No driver location available - drawing only patient to hospital route');
+                
+                // Draw only Patient → Hospital route
+                try {
+                    const route2Url = `https://router.project-osrm.org/route/v1/driving/${patientLng},${patientLat};${hospitalLng},${hospitalLat}?geometries=geojson`;
+                    const route2Response = await fetch(route2Url);
+                    const route2Data = await route2Response.json();
+
+                    if (route2Data.code === 'Ok' && route2Data.routes.length > 0) {
+                        const coords2 = route2Data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                        
+                        L.polyline(coords2, {
+                            color: '#0066ff',
+                            weight: 5,
+                            opacity: 0.9,
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                        }).addTo(map).bindPopup(`<b>👤 Patient → Hospital</b><br>Distance: ${(route2Data.routes[0].distance/1000).toFixed(2)} km<br>Duration: ${(route2Data.routes[0].duration/60).toFixed(0)} min`);
+                    }
+                } catch (error) {
+                    console.error('Error fetching patient-hospital route:', error);
+                }
+                
+                // Fit map to show markers
+                if (markers.length > 0) {
+                    const bounds = L.latLngBounds(markers);
+                    map.fitBounds(bounds, {padding: [50, 50]});
+                }
+                return;
+            }
+
+            try {
+                console.log('Fetching routes...');
+                
+                // Segment 1: Driver → Patient
+                console.log(`Route 1: ${driverLng},${driverLat} → ${patientLng},${patientLat}`);
+                const route1Url = `https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${patientLng},${patientLat}?geometries=geojson`;
+                const route1Response = await fetch(route1Url);
+                const route1Data = await route1Response.json();
+
+                console.log('Route 1 Response:', route1Data);
+
+                if (route1Data.code === 'Ok' && route1Data.routes.length > 0) {
+                    const coords1 = route1Data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    console.log('Route 1 coordinates:', coords1);
+                    
+                    L.polyline(coords1, {
+                        color: '#00cc00',
+                        weight: 5,
+                        opacity: 0.9,
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }).addTo(map).bindPopup(`<b>🚗 Driver → Patient</b><br>Distance: ${(route1Data.routes[0].distance/1000).toFixed(2)} km<br>Duration: ${(route1Data.routes[0].duration/60).toFixed(0)} min`);
+                } else {
+                    console.error('Route 1 failed:', route1Data);
+                }
+
+                // Segment 2: Patient → Hospital
+                console.log(`Route 2: ${patientLng},${patientLat} → ${hospitalLng},${hospitalLat}`);
+                const route2Url = `https://router.project-osrm.org/route/v1/driving/${patientLng},${patientLat};${hospitalLng},${hospitalLat}?geometries=geojson`;
+                const route2Response = await fetch(route2Url);
+                const route2Data = await route2Response.json();
+
+                console.log('Route 2 Response:', route2Data);
+
+                if (route2Data.code === 'Ok' && route2Data.routes.length > 0) {
+                    const coords2 = route2Data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    console.log('Route 2 coordinates:', coords2);
+                    
+                    L.polyline(coords2, {
+                        color: '#0066ff',
+                        weight: 5,
+                        opacity: 0.9,
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }).addTo(map).bindPopup(`<b>👤 Patient → Hospital</b><br>Distance: ${(route2Data.routes[0].distance/1000).toFixed(2)} km<br>Duration: ${(route2Data.routes[0].duration/60).toFixed(0)} min`);
+                } else {
+                    console.error('Route 2 failed:', route2Data);
+                }
+
+                // Fit map to show all markers and routes
+                if (markers.length > 0) {
+                    const bounds = L.latLngBounds(markers);
+                    map.fitBounds(bounds, {padding: [100, 100]});
+                }
+            } catch (error) {
+                console.error('Error fetching routes:', error);
+                alert('Error fetching routes. Please check browser console.');
+            }
+        }
+
+        // Draw routes after map is loaded
+        map.on('load', drawRealRoutes);
+        
+        // Also try drawing immediately (map might already be loaded)
+        setTimeout(drawRealRoutes, 500);
+    </script>
+    <!-- PWA Service Worker Registration -->
+<script src="{{ url_for('static', filename='js/pwa-register.js') }}"></script>
+
+</body>
+</html>

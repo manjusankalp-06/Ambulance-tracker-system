@@ -3,170 +3,258 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ambulance Tracking</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracking-result.css') }}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script 
-    src="https://maps.googleapis.com/maps/api/js?key=your_maps_api_key&libraries=marker&v=beta" 
-    async 
-    defer>
-    </script>
+    <title>{{ title }} - FastAid</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- PWA Meta Tags -->
+<meta name="theme-color" content="#1e3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FirstAid">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+<!-- App Icons -->
+<link rel="icon" type="image/webp" href="{{ url_for('static', filename='images/icon_amb.webp') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/icon_amb.webp') }}">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background-color: rgba(255, 255, 255, 0.95) !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: #667eea !important;
+            font-size: 1.5rem;
+        }
+        
+        .tracking-container {
+            margin-top: 100px;
+            margin-bottom: 50px;
+        }
+        
+        .tracking-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .tracking-card h2 {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .info-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .info-value {
+            color: #333;
+            text-align: right;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-assigned {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .status-started {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .btn-custom {
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 600;
+            margin: 10px 5px;
+        }
+        
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+    </style>
 </head>
 <body>
-
-    <div class="container mt-3">
-        <div class="d-flex align-items-center justify-content-center mb-2">
-            <h2>Real-Time Ambulance Tracking</h2>
-            <img src="{{ url_for('static', filename='images/logos/swiftaid-logo.png') }}" alt="logo" width="50" height="40" class="align-self-top ms-3">
-        </div>
-
-        <div class="row">
-            <!-- Info Section -->
-            <div class="col-md-5">
-                <div class="details">
-                    <p><strong>Patient Name:</strong> {{ patient_name }}</p>
-                    <p><strong>Current Location:</strong> Latitude {{ latitude }}, Longitude {{ longitude }}</p>
-                    <p><strong>Timestamp:</strong> {{ timestamp }}</p>
-                    <p><strong>Estimated Arrival Time:</strong> {{ estimated_time_minutes }} minutes</p>
-                    <p><strong>Pickup Location:</strong> {{ pickup_address }}</p>
-                    <p>&rArr; Latitude {{ pickup_lat }}, Longitude {{ pickup_lng }}</p>
-                    <p><strong>Destination:</strong> {{ destination_address }}</p>
-                    <p>&rArr; Latitude {{ destination_lat }}, Longitude {{ destination_lng }}</p>
-                    <p><strong>Distance:</strong> {{ distance_km }} km</p>
-                    <p><strong>Average Speed:</strong> 80 km/h</p>
-                    <p><strong>Has Arrived:</strong> {% if has_arrived %}Yes{% else %}No{% endif %}</p>
-                    <p>&rArr; Arrival Time: {{ arrival_time }}</p>
-                    <div class="mb-3">
-                        <a href="{{ url_for('tracking') }}" class="btn btn-primary">Track Another Ambulance</a>
-                        <a href="{{ url_for('index') }}" class="btn btn-info">Back to Home</a>
-                    </div>
-                    <div class="alert alert-warning d-flex align-items-center" role="alert">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" fill="currentColor" class="bi bi-exclamation-circle me-2" viewBox="0 0 16 16">
-                            <path d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zm0 14a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm0-4a1 1 0 0 1-1-1V4a1 1 0 0 1 2 0v6a1 1 0 0 1-1 1z"/>
-                        </svg>
-                        <div><strong>Note:</strong> The map shows the real-time route of the ambulance rather then the realtime movement due to lack of calculation data.</div>
-                    </div>
-                </div>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-ambulance"></i> FastAid
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('booking') }}">Book Ambulance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('tracking_search') }}">Track Ambulance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_login') }}">Admin</a>
+                    </li>
+                </ul>
             </div>
+        </div>
+    </nav>
 
-            <!-- Map Section -->
-            <div class="col-md-7">
-                <div id="map" style="height: 500px;"></div>
+    <!-- Main Content -->
+    <div class="container tracking-container">
+        <div class="tracking-card">
+            <h2><i class="fas fa-map-marked-alt"></i> Ambulance Request Details</h2>
+            
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <div class="info-section">
+                <div class="info-row">
+                    <span class="info-label"><i class="fas fa-hashtag"></i> Request ID:</span>
+                    <span class="info-value">{{ request[0] }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label"><i class="fas fa-user"></i> Patient Name:</span>
+                    <span class="info-value">{{ request[2] or 'N/A' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label"><i class="fas fa-phone"></i> Contact:</span>
+                    <span class="info-value">{{ request[3] or 'N/A' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label"><i class="fas fa-map-marker-alt"></i> Pickup Location:</span>
+                    <span class="info-value">{{ request[4] or 'N/A' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label"><i class="fas fa-hospital"></i> Destination:</span>
+                    <span class="info-value">{{ request[5] or 'N/A' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label"><i class="fas fa-ambulance"></i> Ambulance Type:</span>
+                    <span class="info-value">{{ request[6] or 'Basic' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label"><i class="fas fa-info-circle"></i> Status:</span>
+                    <span class="info-value">
+                        {% if request[11] == 'Pending' %}
+                            <span class="status-badge status-pending">{{ request[11] }}</span>
+                        {% elif request[11] == 'Assigned' %}
+                            <span class="status-badge status-assigned">{{ request[11] }}</span>
+                        {% else %}
+                            <span class="status-badge status-started">{{ request[11] }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% if request[12] %}
+                <div class="info-row">
+                    <span class="info-label"><i class="fas fa-clock"></i> Estimated Arrival:</span>
+                    <span class="info-value">{{ request[12] }}</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="{{ url_for('tracking_search') }}" class="btn btn-primary-custom btn-custom">
+                    <i class="fas fa-search"></i> Track Another Ambulance
+                </a>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary btn-custom">
+                    <i class="fas fa-home"></i> Back to Home
+                </a>
+            </div>
+            
+            <div class="alert alert-info mt-4" role="alert">
+                <i class="fas fa-info-circle"></i>
+                <strong>Note:</strong> For real-time location tracking, please contact our emergency helpline at <strong>+91 9380662053</strong>
             </div>
         </div>
     </div>
 
-    <script>
-        const pickupLocation = { lat: parseFloat("{{ pickup_lat }}"), lng: parseFloat("{{ pickup_lng }}") };
-        const destinationLocation = { lat: parseFloat("{{ destination_lat }}"), lng: parseFloat("{{ destination_lng }}") };
-    
-        let map, marker, directionsService, directionsRenderer;
-        const ambulanceIcon = {
-          url: '{{ url_for("static", filename="images/icon_amb.webp") }}',
-          scaledSize: new google.maps.Size(40, 40),
-        };
-    
-        let routeSteps = [];
-        let routePath = [];
-    
-        function initMap() {
-          map = new google.maps.Map(document.getElementById('map'), {
-            zoom: 15,
-            center: pickupLocation
-          });
-    
-          marker = new google.maps.Marker({
-            position: pickupLocation,
-            map: map,
-            title: "Ambulance Location",
-            icon: ambulanceIcon
-          });
-    
-          directionsService = new google.maps.DirectionsService();
-          directionsRenderer = new google.maps.DirectionsRenderer({
-            map: map,
-            suppressMarkers: true
-          });
-    
-          const   
-     request = {
-            origin: pickupLocation,
-            destination: destinationLocation,
-            travelMode: google.maps.TravelMode.DRIVING,
-          };
-    
-          directionsService.route(request, (result, status) => {
-            if (status === google.maps.DirectionsStatus.OK) {
-              directionsRenderer.setDirections(result);   
-    
-              routeSteps = result.routes[0].legs[0].steps;
-    
-              routePath = [];
-              for (let i = 0; i < routeSteps.length; i++) {
-                routePath.push(routeSteps[i].start_location);
-              }
-              routePath.push(routeSteps[routeSteps.length - 1].end_location);
-    
-              animateAmbulanceAlongRoute();
-            } else {
-              console.error('Directions request failed due to ' + status);
-            }
-          });
-        }
-    
-        function animateAmbulanceAlongRoute() {
-          if (routePath.length === 0) return;
-    
-          const totalDistance = calculateTotalDistance();
-          const totalTimeInHours = totalDistance / targetSpeed;
-          const totalTimeInMilliseconds = totalTimeInHours * 3600000;
-    
-          let stepIndex = 0;
-          let startTime = Date.now();
-    
-          function moveToNextPosition() {
-            if (stepIndex < routePath.length - 1) {
-              const start = routePath[stepIndex];
-              const end = routePath[stepIndex + 1];
-    
-              const distance = google.maps.geometry.spherical.computeDistanceBetween(start, end);
-              const timeToNextPoint = distance / targetSpeed * 3600000;
-    
-              const elapsedTime = Date.now() - startTime;
-              const percentage = elapsedTime / timeToNextPoint;
-    
-              if (percentage < 1) {
-                const newPosition = google.maps.geometry.spherical.interpolate(start, end, percentage);
-                marker.setPosition(newPosition);
-              } else {
-                marker.setPosition(end);
-                stepIndex++;
-                startTime = Date.now();
-              }
-    
-              setTimeout(moveToNextPosition, timeToNextPoint);
-            } else {
-              console.log("Animation complete");
-            }
-          }
-    
-          moveToNextPosition();
-        }
-    
-        function calculateTotalDistance() {
-          let totalDistance = 0;
-    
-          for (let i = 0; i < routePath.length - 1; i++) {
-            const start = routePath[i];
-            const end = routePath[i + 1];
-            totalDistance += google.maps.geometry.spherical.computeDistanceBetween(start, end);
-          }
-    
-          return totalDistance;
-        }
-    
-        google.maps.event.addDomListener(window, 'load', initMap);
-      </script>
+    <!-- Footer -->
+    <footer class="text-center text-white py-4" style="background: rgba(0,0,0,0.2);">
+        <div class="container">
+            <p class="mb-2">
+                <strong>Emergency Helpline:</strong> +91 9380662053<br>
+                <strong>Email:</strong> sankalp.saman@gmail.com<br>
+                <strong>Location:</strong> BMSIT&M
+            </p>
+            <p class="mb-0">
+                <a href="{{ url_for('privacy_policy') }}" class="text-white me-3">Privacy Policy</a>
+                <a href="{{ url_for('terms_of_service') }}" class="text-white">Terms of Service</a>
+            </p>
+            <p class="mb-0 mt-2">&copy; 2024 FastAid. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- PWA Service Worker Registration -->
+<script src="{{ url_for('static', filename='js/pwa-register.js') }}"></script>
+
 </body>
 </html>

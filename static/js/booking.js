@@ -1,130 +1,72 @@
-const getLocationButton = document.getElementById('get-location');
-const getHospitalsButton = document.getElementById('get-hospitals');
-const searchRadiusElement = document.getElementById('search-radius');
-const destinationSelect = document.getElementById('destination');
-// Fetch user's location
-getLocationButton.addEventListener('click', () => {
+// --- 1. INITIALIZE MAP (Google Maps Style) ---
+const map = L.map('map', { zoomControl: false }).setView([12.9716, 77.5946], 13);
+
+// Using 'Voyager' tiles - this is the "Normal" clean map look you asked for
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CartoDB'
+}).addTo(map);
+
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+let pickupMarker, hospitalMarker;
+let clickCount = 0;
+
+// --- 2. MAP CLICK LOGIC ---
+map.on('click', function(e) {
+    const { lat, lng } = e.latlng;
+    const coordString = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    if (clickCount === 0) {
+        if (pickupMarker) map.removeLayer(pickupMarker);
+        pickupMarker = L.marker([lat, lng], {
+            icon: L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/6877/6877471.png',
+                iconSize: [35, 35], iconAnchor: [17, 35]
+            })
+        }).addTo(map).bindPopup("Pickup Location").openPopup();
+        
+        document.getElementById('p-stat').className = 'pin-status active';
+        document.getElementById('pick_addr').value = coordString;
+        clickCount = 1;
+    } else {
+        if (hospitalMarker) map.removeLayer(hospitalMarker);
+        hospitalMarker = L.marker([lat, lng], {
+            icon: L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3757/3757965.png',
+                iconSize: [35, 35], iconAnchor: [17, 35]
+            })
+        }).addTo(map).bindPopup("Target Hospital").openPopup();
+        
+        document.getElementById('h-stat').className = 'pin-status active';
+        document.getElementById('dest_addr').value = coordString;
+        clickCount = 0;
+    }
+});
+
+// --- 3. GPS BUTTON LOGIC ---
+document.getElementById('get-location').addEventListener('click', function() {
+    const btn = this;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locating...';
+    
     if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser.");
+        alert("Geolocation not supported");
         return;
     }
 
-    getLocationButton.textContent = "Fetching location...";
-    getLocationButton.disabled = true;
-
-    // Set a longer timeout (30 seconds) and more detailed options for geolocation
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            document.getElementById('location').value = `Latitude: ${lat}, Longitude: ${lng}`;
-            alert("Location retrieved successfully!");
-            getLocationButton.textContent = "Enable Precise Location";
-            getLocationButton.disabled = false;
-        },
-        (error) => {
-            console.error("Geolocation error:", error);
-            switch (error.code) {
-                case error.PERMISSION_DENIED:
-                    alert("Permission denied. Please allow location access.");
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    alert("Location unavailable. Please check your GPS or internet connection.");
-                    break;
-                case error.TIMEOUT:
-                    alert("Location request timed out. Please ensure that your device has a GPS signal and try again.");
-                    break;
-                case error.UNKNOWN_ERROR:
-                    alert("An unknown error occurred while retrieving location. Please try again.");
-                    break;
-            }
-            getLocationButton.textContent = "Enable Precise Location";
-            getLocationButton.disabled = false;
-        },
-        {
-            enableHighAccuracy: true,   // Ensure higher accuracy for location
-            timeout: 30000,             // Increased timeout to 30 seconds
-            maximumAge: 0               // Don't use cached positions
-        }
-    );
+    navigator.geolocation.getCurrentPosition((pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        map.setView([lat, lng], 16);
+        
+        if (pickupMarker) map.removeLayer(pickupMarker);
+        pickupMarker = L.marker([lat, lng]).addTo(map).bindPopup("You are here").openPopup();
+        
+        document.getElementById('pick_addr').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById('p-stat').className = 'pin-status active';
+        btn.innerHTML = '<i class="fas fa-location-arrow"></i> Use My GPS';
+        clickCount = 1; // Next click will be hospital
+    }, (err) => {
+        alert("Could not get location. Please enable GPS.");
+        btn.innerHTML = '<i class="fas fa-location-arrow"></i> Use My GPS';
+    }, { enableHighAccuracy: true });
 });
-
-// Haversine formula to calculate the distance between two points (lat, lng) in km
-function haversine(lat1, lng1, lat2, lng2) {
-    const R = 6371; // Radius of the Earth in kilometers
-    const dLat = (lat2 - lat1) * (Math.PI / 180);  // Convert degrees to radians
-    const dLng = (lng2 - lng1) * (Math.PI / 180);  // Convert degrees to radians
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-              Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;  // Distance in kilometers
-    return distance;
-}
-
-
-// Fetch hospitals based on location and radius
-getHospitalsButton.addEventListener('click', () => {
-    const location = document.getElementById('location').value;
-    const radiusInKm = parseInt(searchRadiusElement.value, 10);  // Get radius in km
-    const radiusInMeters = radiusInKm * 1;  // Convert km to meters
-
-    if (!location) {
-        alert("Please enable precise location first.");
-        return;
-    }
-
-    const [lat, lng] = location.replace("Latitude: ", "").replace("Longitude: ", "").split(", ").map(val => parseFloat(val.trim()));
-
-    if (isNaN(lat) || isNaN(lng)) {
-        alert("Invalid location format. Please try again.");
-        return;
-    }
-
-    console.log(`Fetching hospitals within a radius of ${radiusInMeters} meters...`);
-    fetchHospitals(lat, lng, radiusInMeters);
-});
-
-// Fetch hospitals from the backend
-function fetchHospitals(lat, lng, radius) {
-    fetch(`/find_nearest_hospitals?lat=${lat}&lng=${lng}&radius=${radius}`)
-        .then(response => response.json())
-        .then(data => {
-            console.log("Hospital data received:", data); // Log the received data
-
-            destinationSelect.innerHTML = ''; // Clear the previous options
-
-            const defaultOption = document.createElement('option');
-            defaultOption.value = '';
-            defaultOption.text = 'Choose a hospital';
-            destinationSelect.appendChild(defaultOption);
-
-            if (data.hospitals && data.hospitals.length > 0) {
-                data.hospitals.forEach(hospital => {
-                    const hospitalLat = hospital.latitude;
-                    const hospitalLng = hospital.longitude;
-
-                    if (isNaN(hospitalLat) || isNaN(hospitalLng)) {
-                        console.error("Invalid hospital coordinates:", hospitalLat, hospitalLng);
-                        return;  // Skip this hospital if coordinates are invalid or missing
-                    }
-
-                    const distance = haversine(lat, lng, hospitalLat, hospitalLng); // Calculate distance in km
-
-                    const option = document.createElement('option');
-                    option.value = hospital.name;
-                    option.text = `${hospital.name} (${distance.toFixed(2)} km) - ${hospital.address}`;
-                    destinationSelect.appendChild(option);
-
-                    console.log(`Hospital: ${hospital.name}, Distance: ${distance.toFixed(2)} km`);
-                });
-                alert("Hospital list updated successfully!");
-            } else {
-                alert("No hospitals found within the selected radius.");
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching hospitals:", error);
-            alert("Failed to retrieve hospitals. Please try again.");
-        });
-}

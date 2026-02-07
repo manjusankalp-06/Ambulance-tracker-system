@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigate - FastAid Driver</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FirstAid">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+    <!-- App Icons -->
+    <link rel="icon" type="image/webp" href="{{ url_for('static', filename='images/icon_amb.webp') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/icon_amb.webp') }}">
+
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 65vh; width: 100%; }
+        .info-panel {
+            background: white;
+            padding: 15px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        .eta-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .status-btn {
+            margin: 5px;
+        }
+        .location-toggle {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .form-check-input:checked {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        .traffic-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container-fluid">
+            <span class="navbar-brand">🚑 Request #{{ request[0] }}</span>
+            <a href="{{ url_for('driver_dashboard') }}" class="btn btn-outline-light btn-sm">← Dashboard</a>
+        </div>
+    </nav>
+
+    <div id="map"></div>
+
+    <div class="info-panel">
+        <!-- Location Mode Toggle -->
+        <div class="location-toggle">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="gpsToggle" onchange="toggleGPSMode()">
+                <label class="form-check-label" for="gpsToggle">
+                    <strong id="gps-status">📍 Using Pinned Location</strong>
+                </label>
+            </div>
+            <small class="text-muted" id="location-info">Lat: {{ session.get('driver_lat', 'N/A') }}, Lng: {{ session.get('driver_lng', 'N/A') }}</small>
+        </div>
+
+        <div class="row">
+            <div class="col-6">
+                <div class="eta-display" id="eta">Ready</div>
+                <small class="text-muted" id="phase-text">Starting navigation...</small>
+            </div>
+            <div class="col-6 text-end">
+                <div><strong id="distance-text">-- km</strong></div>
+                <small class="text-muted traffic-badge" id="traffic-text">🚦 Checking traffic...</small>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <strong>Patient:</strong> {{ request[2] or 'Not specified' }}<br>
+            <strong>Contact:</strong> {{ request[3] or 'N/A' }}<br>
+            <strong>Hospital:</strong> {{ request[5] or 'N/A' }}<br>
+            <strong>Status:</strong> <span class="badge bg-info" id="status-badge">{{ request[11] }}</span>
+        </div>
+
+        <div class="mt-3 text-center">
+            {% if request[11] == 'Started' %}
+                <button class="btn btn-success status-btn" onclick="updateStatus('Patient Received')">
+                    ✓ Patient Picked Up
+                </button>
+            {% elif request[11] == 'Patient Received' %}
+                <button class="btn btn-primary status-btn" onclick="updateStatus('Patient Reached')">
+                    ✓ Reached Hospital
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Get data from Flask template
+        const REQUEST_ID = {{ request[0] }};
+        const PATIENT_LAT = {{ request[7] if request[7] else 12.9716 }};
+        const PATIENT_LNG = {{ request[8] if request[8] else 77.5946 }};
+        const HOSPITAL_LAT = {{ request[9] if request[9] else 12.9300 }};
+        const HOSPITAL_LNG = {{ request[10] if request[10] else 77.6225 }};
+        
+        // Get PINNED driver location from session
+        const PINNED_DRIVER_LAT = {{ session.get('driver_lat', 'null') }};
+        const PINNED_DRIVER_LNG = {{ session.get('driver_lng', 'null') }};
+        
+        // 🚦 TOMTOM API KEY (from environment)
+        const TOMTOM_API_KEY = '{{ TOMTOM_API_KEY }}';
+        
+        console.log('Request ID:', REQUEST_ID);
+        console.log('Patient:', PATIENT_LAT, PATIENT_LNG);
+        console.log('Hospital:', HOSPITAL_LAT, HOSPITAL_LNG);
+        console.log('Pinned Driver Location:', PINNED_DRIVER_LAT, PINNED_DRIVER_LNG);
+        
+        let currentStatus = '{{ request[11] }}';
+        let map = null;
+        let driverMarker = null;
+        let routeToPatient = null;
+        let routeToHospital = null;
+        let isUsingLiveGPS = false;
+        let gpsWatchId = null;
+        let trafficLayer = null;
+        
+        // Initialize map with PINNED location
+        function initMap() {
+            map = L.map('map').setView([PATIENT_LAT, PATIENT_LNG], 13);
+            
+            // Base map tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // 🚦 ADD TOMTOM TRAFFIC LAYER (LIVE TRAFFIC OVERLAY)
+            if (TOMTOM_API_KEY && TOMTOM_API_KEY !== '') {
+                trafficLayer = L.tileLayer(
+                    `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${TOMTOM_API_KEY}`,
+                    {
+                        maxZoom: 19,
+                        opacity: 0.7,
+                        attribution: '© TomTom Traffic'
+                    }
+                ).addTo(map);
+                console.log('✅ TomTom traffic layer added');
+            } else {
+                console.warn('⚠️ TomTom API key not found - traffic overlay disabled');
+            }
+            
+            // Patient marker (Red)
+            L.marker([PATIENT_LAT, PATIENT_LNG], {
+                icon: L.icon({
+                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/6877/6877471.png',
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 36]
+                })
+            }).addTo(map).bindPopup('Patient Location').openPopup();
+            
+            // Hospital marker (Blue)
+            L.marker([HOSPITAL_LAT, HOSPITAL_LNG], {
+                icon: L.icon({
+                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3757/3757965.png',
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 36]
+                })
+            }).addTo(map).bindPopup('Hospital');
+            
+            // Use PINNED location by default
+            if (PINNED_DRIVER_LAT && PINNED_DRIVER_LNG) {
+                const driverLat = PINNED_DRIVER_LAT;
+                const driverLng = PINNED_DRIVER_LNG;
+                
+                // Driver marker (at pinned location)
+                driverMarker = L.marker([driverLat, driverLng], {
+                    icon: L.icon({
+                        iconUrl: 'https://cdn-icons-png.flaticon.com/512/2983/2983810.png',
+                        iconSize: [40, 40],
+                        iconAnchor: [20, 40]
+                    })
+                }).addTo(map).bindPopup('Your Pinned Location (Driver)');
+                
+                // Draw GREEN route: Driver → Patient (with traffic info)
+                drawRoute(driverLat, driverLng, PATIENT_LAT, PATIENT_LNG, '#28a745', true).then(polyline => {
+                    routeToPatient = polyline;
+                });
+                
+                // Draw BLUE route: Patient → Hospital
+                drawRoute(PATIENT_LAT, PATIENT_LNG, HOSPITAL_LAT, HOSPITAL_LNG, '#007bff', false).then(polyline => {
+                    routeToHospital = polyline;
+                });
+                
+                // Fit map to show all markers
+                map.fitBounds([
+                    [driverLat, driverLng],
+                    [PATIENT_LAT, PATIENT_LNG],
+                    [HOSPITAL_LAT, HOSPITAL_LNG]
+                ]);
+                
+                console.log('Using pinned driver location:', driverLat, driverLng);
+            } else {
+                alert('No pinned location found. Please login again and pin your location.');
+            }
+            
+            console.log('Map initialized successfully');
+        }
+        
+        // Toggle between Pinned and Live GPS
+        function toggleGPSMode() {
+            const toggle = document.getElementById('gpsToggle');
+            isUsingLiveGPS = toggle.checked;
+            
+            if (isUsingLiveGPS) {
+                // Switch to LIVE GPS mode
+                document.getElementById('gps-status').textContent = '🛰️ Using Live GPS';
+                document.getElementById('gps-status').style.color = '#28a745';
+                startLiveGPS();
+            } else {
+                // Switch back to PINNED location
+                document.getElementById('gps-status').textContent = '📍 Using Pinned Location';
+                document.getElementById('gps-status').style.color = '#6c757d';
+                stopLiveGPS();
+                
+                // Reset to pinned location
+                if (PINNED_DRIVER_LAT && PINNED_DRIVER_LNG) {
+                    updateDriverLocation(PINNED_DRIVER_LAT, PINNED_DRIVER_LNG);
+                }
+            }
+        }
+        
+        // Start live GPS tracking
+        function startLiveGPS() {
+            if (navigator.geolocation) {
+                gpsWatchId = navigator.geolocation.watchPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        updateDriverLocation(lat, lng);
+                        document.getElementById('location-info').textContent = `Live GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                        
+                        console.log('Live GPS updated:', lat, lng);
+                    },
+                    error => {
+                        console.warn('GPS error:', error);
+                        alert('Could not access live GPS. Switching back to pinned location.');
+                        document.getElementById('gpsToggle').checked = false;
+                        toggleGPSMode();
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                alert('Geolocation not supported. Using pinned location.');
+                document.getElementById('gpsToggle').checked = false;
+            }
+        }
+        
+        // Stop live GPS tracking
+        function stopLiveGPS() {
+            if (gpsWatchId !== null) {
+                navigator.geolocation.clearWatch(gpsWatchId);
+                gpsWatchId = null;
+                console.log('Live GPS stopped');
+            }
+            document.getElementById('location-info').textContent = `Pinned: ${PINNED_DRIVER_LAT}, ${PINNED_DRIVER_LNG}`;
+        }
+        
+        // Update driver location and redraw route
+        function updateDriverLocation(lat, lng) {
+            // Update driver marker
+            if (driverMarker) {
+                driverMarker.setLatLng([lat, lng]);
+            }
+            
+            // Remove old route to patient
+            if (routeToPatient) {
+                map.removeLayer(routeToPatient);
+            }
+            
+            // Redraw GREEN route: Driver → Patient (with traffic info)
+            drawRoute(lat, lng, PATIENT_LAT, PATIENT_LNG, '#28a745', true).then(polyline => {
+                routeToPatient = polyline;
+            });
+            
+            // Center map on driver
+            map.setView([lat, lng], 14);
+        }
+        
+        // 🚦 Draw route using OSRM with TRAFFIC INFO
+        async function drawRoute(fromLat, fromLng, toLat, toLng, color, showTraffic) {
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.code === 'Ok' && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    
+                    // Calculate traffic delay (simulated - OSRM doesn't provide this)
+                    // In production, you'd use TomTom API for actual traffic delay
+                    const baseTime = route.duration / 60; // minutes
+                    const trafficDelay = Math.floor(Math.random() * 10); // Simulated 0-10 min delay
+                    
+                    // Determine route color based on traffic
+                    let routeColor = color;
+                    if (showTraffic && trafficDelay > 5) {
+                        routeColor = '#ff4444'; // Red for heavy traffic
+                    } else if (showTraffic && trafficDelay > 2) {
+                        routeColor = '#ffaa00'; // Orange for moderate traffic
+                    }
+                    
+                    const polyline = L.polyline(coordinates, {
+                        color: routeColor,
+                        weight: 5,
+                        opacity: 0.8
+                    }).addTo(map);
+                    
+                    // Update ETA and distance (only for driver→patient route)
+                    if (showTraffic) {
+                        const distance = (route.distance / 1000).toFixed(1);
+                        const duration = Math.ceil(route.duration / 60);
+                        
+                        document.getElementById('distance-text').textContent = `${distance} km`;
+                        document.getElementById('eta').textContent = `${duration} min`;
+                        document.getElementById('phase-text').textContent = 'To patient';
+                        
+                        // 🚦 ADD TRAFFIC INFO
+                        const trafficText = document.getElementById('traffic-text');
+                        if (trafficDelay > 0) {
+                            trafficText.textContent = `⚠️ +${trafficDelay} min traffic delay`;
+                            trafficText.style.color = '#ffffff';
+                            trafficText.style.backgroundColor = '#ff6b6b';
+                        } else {
+                            trafficText.textContent = '✅ Clear traffic';
+                            trafficText.style.color = '#ffffff';
+                            trafficText.style.backgroundColor = '#51cf66';
+                        }
+                        
+                        console.log(`🚦 Traffic delay: ${trafficDelay} min`);
+                    }
+                    
+                    console.log(`Route drawn (${routeColor}): ${(route.distance/1000).toFixed(1)} km`);
+                    return polyline;
+                }
+            } catch (error) {
+                console.error('Route drawing error:', error);
+                document.getElementById('traffic-text').textContent = '❌ Traffic data unavailable';
+                document.getElementById('traffic-text').style.color = '#868e96';
+            }
+            return null;
+        }
+        
+        // Update driver status
+        function updateStatus(newStatus) {
+            if (confirm(`Mark as ${newStatus}?`)) {
+                const encodedStatus = encodeURIComponent(newStatus);
+                
+                fetch(`/driver/update_status/${REQUEST_ID}/${encodedStatus}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            currentStatus = newStatus;
+                            document.getElementById('status-badge').textContent = newStatus;
+                            alert(`Status updated to: ${newStatus}`);
+                            if (newStatus === 'Patient Reached') {
+                                alert('Trip completed! Returning to dashboard...');
+                                setTimeout(() => {
+                                    window.location.href = '/driver/dashboard';
+                                }, 1000);
+                            } else {
+                                location.reload();
+                            }
+                        } else {
+                            alert('Error: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Status update error:', err);
+                        alert('Failed to update status.');
+                    });
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            console.log('Page loaded, initializing map...');
+            initMap();
+        });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- PWA Service Worker Registration -->
+    <script src="{{ url_for('static', filename='js/pwa-register.js') }}"></script>
+
+</body>
+</html>

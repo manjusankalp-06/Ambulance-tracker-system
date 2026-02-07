@@ -3,8 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy | SwiftAid</title>
+    <title>Privacy Policy | FirstAid</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- PWA Meta Tags -->
+<meta name="theme-color" content="#1e3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FirstAid">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+<!-- App Icons -->
+<link rel="icon" type="image/webp" href="{{ url_for('static', filename='images/icon_amb.webp') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/icon_amb.webp') }}">
+
+
     <style>
         body {
             background-color: #000000;
@@ -37,11 +53,11 @@
             <div class="col-md-8">
                 <div class="policy-content">
                     <h1 class="text-center heading">Privacy Policy</h1>
-                    <p>Effective Date: <strong>November 2024</strong></p>
+                    <p>Effective Date: <strong>November 2025</strong></p>
                     <hr>
 
                     <h3>1. Introduction</h3>
-                    <p>At SwiftAid, we value your privacy and are committed to protecting your personal information. This Privacy Policy outlines how we collect, use, and protect your data when you use our services.</p>
+                    <p>At FirstAid, we value your privacy and are committed to protecting your personal information. This Privacy Policy outlines how we collect, use, and protect your data when you use our services.</p>
 
                     <h3>2. Information We Collect</h3>
                     <ul>
@@ -78,9 +94,9 @@
 
                     <h3>9. Contact Information</h3>
                     <p>If you have any questions about our Privacy Policy, please contact us at:</p>
-                    <p>Email: <strong>support@swiftaid.com</strong></p>
-                    <p>Phone: <strong>+977 1 4234567</strong></p>
-                    <p>Address: <strong>SwiftAid, Kathmandu, Nepal</strong></p>
+                    <p>Email: <strong>firstaid.at.yourdoor@gmail.com</strong></p>
+                    <p>Phone: <strong>+91 9380662053</strong></p>
+                    <p>Address: <strong>FirstAid, Bangalore, India</strong></p>
 
                     <hr>
                     <p class="text-center"><a href="{{ url_for('index') }}" class="btn btn-primary">Back to Home</a></p>
@@ -90,5 +106,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- PWA Service Worker Registration -->
+<script src="{{ url_for('static', filename='js/pwa-register.js') }}"></script>
+
 </body>
 </html>
