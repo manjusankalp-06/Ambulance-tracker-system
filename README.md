@@ -1,337 +1,353 @@
-# SwiftAid Ambulance Tracking System
+ # FirstAid - Ambulance Tracking and Management System
 
-![SwiftAid Logo](https://github.com/user-attachments/assets/417db245-0f1a-4252-8324-b098107252dd)
+Your Lifeline in Emergencies
 
-## Overview
-
-SwiftAid is a comprehensive ambulance tracking and management system designed to streamline emergency medical services. The system enables real-time ambulance tracking, efficient dispatch management, and provides intuitive interfaces for both administrators and patients.
-
-## Key Screenshots
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <img src="https://github.com/user-attachments/assets/3c4b4bb4-87d5-4b13-b61d-3302664c787e" alt="Patient Interface" width="100%">
-        <br><b>Patient Interface</b>
-      </td>
-      <td align="center">
-        <img src="https://github.com/user-attachments/assets/9e9b5ddb-a5f4-4dd5-a263-404a6558992d" alt="Tracking View" width="100%">
-        <br><b>Tracking View</b>
-      </td>
-      <td align="center">
-        <img src="https://github.com/user-attachments/assets/b99c8263-d127-41b5-acf2-9a651123c63b" alt="Hospital Finder" width="100%">
-        <br><b>Hospital Finder</b>
-      </td>
-    </tr>
-  </table>
-</div>
-
-
-### Main Admin Dashboard
-The main administrator can add, remove, and reset secondary admin accounts.
-
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/c5ac0950-4b48-4d7f-aba6-2e87f7d40b84" alt="Admin Dashboard" width="80%">
-</div>
-
-## Features
-
-| Category | Features |
-|----------|----------|
-| **Core Functionality** | • Real-time Ambulance Tracking<br>• Ambulance Booking System<br>• Nearest Hospital Finder |
-| **Administration** | • Comprehensive Admin Dashboard<br>• User Tracking Interface<br>• PDF Report Generation |
-| **Technical** | • Real-time Speed Calculation<br>• Estimated Time of Arrival (ETA) Prediction |
-
-## Technology Stack
-
-<table>
-  <tr>
-    <td><strong>Backend</strong></td>
-    <td>Python with Flask framework</td>
-  </tr>
-  <tr>
-    <td><strong>Database</strong></td>
-    <td>SQLite</td>
-  </tr>
-  <tr>
-    <td><strong>Frontend</strong></td>
-    <td>HTML, CSS, JavaScript</td>
-  </tr>
-  <tr>
-    <td><strong>APIs</strong></td>
-    <td>Google Maps, OpenCage Geocoding</td>
-  </tr>
-  <tr>
-    <td><strong>Real-time Communication</strong></td>
-    <td>Flask-SocketIO</td>
-  </tr>
-  <tr>
-    <td><strong>PDF Generation</strong></td>
-    <td>ReportLab</td>
-  </tr>
-</table>
-
-## System Architecture
-
-The system follows a client-server architecture with the following components:
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Client Browser │◄────┤  Flask Web App  │◄────┤  SQLite Database│
-└────────┬────────┘     └────────┬────────┘     └─────────────────┘
-         │                       │
-         │                       │                ┌─────────────────┐
-         └───────────────────────┼────────────────┤  External APIs  │
-                                 │                └─────────────────┘
-                      ┌──────────┴────────┐
-                      │ WebSocket Server  │
-                      └───────────────────┘
-```
-
-## Key Modules
-
-### 1. User Management
-- User registration and authentication
-- Admin login and dashboard access
-- Role-based access control
-
-### 2. Ambulance Booking
-- Patient information input
-- Location selection (pickup and destination)
-- Ambulance type selection
-- Priority level assignment
-
-### 3. Tracking System
-- Real-time location updates
-- Speed calculation
-- ETA prediction
-- Route optimization
-
-### 4. Hospital Finder
-- Locates nearest hospitals based on user's location
-- Provides hospital information and distance
-- Filters by available services
-
-### 5. Admin Dashboard
-- Overview of all ambulance requests
-- Status management of requests
-- Real-time tracking of all ambulances
-- Performance analytics
-
-### 6. Reporting
-- PDF generation of ambulance request details
-- Includes patient information, locations, and timestamps
-- Statistical reports for management
-
-## Database Schema
-
-### Key Tables
-
-#### `ambulance_requests`
-Stores details of each ambulance request.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| patient_name | TEXT | Name of the patient |
-| contact | TEXT | Contact number |
-| pickup_location | TEXT | Address for pickup |
-| destination | TEXT | Hospital or destination address |
-| status | TEXT | Current status of request |
-| created_at | TIMESTAMP | Request creation time |
-
-#### `ambulance_locations`
-Tracks real-time locations of ambulances.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| request_id | INTEGER | Foreign key to ambulance_requests |
-| latitude | REAL | Current latitude |
-| longitude | REAL | Current longitude |
-| speed | REAL | Current speed in km/h |
-| timestamp | TIMESTAMP | Time of location update |
-
-#### `admins`
-Stores admin user credentials.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| username | TEXT | Admin username |
-| password_hash | TEXT | Hashed password |
-| is_main_admin | BOOLEAN | Flag for main admin privileges |
-
-## API Endpoints
-
-| Endpoint | Methods | Description |
-|----------|---------|-------------|
-| `/booking` | `GET`, `POST` | Ambulance booking interface and form submission |
-| `/tracking` | `GET`, `POST` | Ambulance tracking interface |
-| `/admin_dashboard` | `GET` | Admin dashboard |
-| `/update_status/<req_id>` | `POST` | Update request status |
-| `/download_pdf/<req_id>` | `GET` | Generate and download PDF report |
-| `/find_nearest_hospitals` | `GET` | AJAX endpoint for finding nearby hospitals |
-| `/login` | `GET`, `POST` | Admin authentication |
-| `/logout` | `GET` | End admin session |
-
-## Real-time Features
-
-- WebSocket connections for live updates of ambulance locations
-- Real-time calculation and display of ambulance speed
-- Live updates of request statuses on the admin dashboard
-- Instant notifications for new ambulance requests
-
-## Security Measures
-
-<table>
-  <tr>
-    <th>Feature</th>
-    <th>Implementation</th>
-  </tr>
-  <tr>
-    <td>Password Hashing</td>
-    <td>Using Werkzeug security for password protection</td>
-  </tr>
-  <tr>
-    <td>Session Management</td>
-    <td>Secure admin sessions with timeout</td>
-  </tr>
-  <tr>
-    <td>HTTPS</td>
-    <td>SSL context for encrypted communication</td>
-  </tr>
-  <tr>
-    <td>Input Validation</td>
-    <td>Sanitization of user inputs to prevent SQL injection</td>
-  </tr>
-  <tr>
-    <td>Access Control</td>
-    <td>Role-based permissions for different admin levels</td>
-  </tr>
-</table>
-
-## Algorithms
-
-### Haversine Formula
-For distance calculation between coordinates:
-
-```
-a = sin²(Δφ/2) + cos φ1 · cos φ2 · sin²(Δλ/2)
-c = 2 · atan2(√a, √(1−a))
-d = R · c
-```
-Where:
-- φ is latitude
-- λ is longitude
-- R is earth's radius (6,371 km)
-
-### ETA Calculation
-```
-ETA = (distance / average_speed) + traffic_factor
-```
-
-### Additional Algorithms
-- Geocoding: Converting addresses to coordinates and vice versa
-- Nearest Neighbor Search: For finding nearby hospitals
-- Route optimization for efficient ambulance dispatch
-
-## External Service Integration
-
-### Google Maps API
-- Maps rendering
-- Geocoding services
-- Route calculation
-- Traffic data
-
-### OpenCage Geocoding API
-- Alternative geocoding service
-- Reverse geocoding for address lookup
-- Address validation
-
-## Deployment
-
-The application is configured to run on port `5001` with SSL encryption. It uses self-signed certificates for HTTPS in the development environment.
-
-### System Requirements
-- Python 3.6+
-- 2GB RAM minimum
-- 1GB free disk space
-- Internet connection for API access
-
-### Cloning the Repository
-```bash
-git clone https://github.com/Lusan-sapkota/Ambulance-tracking-system.git
-cd swiftaid
-```
-
-## Setup Instructions
-
-### 1. Install Dependencies
-Ensure Python and pip are installed. Then, run:
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Create a `.env` File
-In the root directory of the project, create a file named `.env` and include your API keys:
-```plaintext
-GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-OPENCAGE_API_KEY=your_opencage_api_key
-```
-
-### 3. Update HTML Files
-Add your Google Maps API key in `tracking_result.html` to ensure the maps feature works correctly:
-```html
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
-```
-
-### 4. Run the Application
-Start the Flask server with:
-```bash
-python app.py
-```
-Access the application at [https://localhost:5001](https://localhost:5001).
-
-## Future Enhancements
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><strong>Mobile App</strong></td>
-      <td align="center"><strong>ML Integration</strong></td>
-      <td align="center"><strong>Hospital Integration</strong></td>
-    </tr>
-    <tr>
-      <td>Native mobile applications for Android and iOS platforms</td>
-      <td>Machine learning for more accurate ETA prediction and route optimization</td>
-      <td>Direct integration with hospital management systems</td>
-    </tr>
-    <tr>
-      <td align="center"><strong>Multilingual Support</strong></td>
-      <td align="center"><strong>Analytics Dashboard</strong></td>
-      <td align="center"><strong>Voice Recognition</strong></td>
-    </tr>
-    <tr>
-      <td>Support for multiple languages to serve diverse populations</td>
-      <td>Advanced analytics dashboard with performance metrics and insights</td>
-      <td>Voice commands for hands-free operation in emergency situations</td>
-    </tr>
-  </table>
-</div>
-
-## Conclusion
-
-SwiftAid provides a robust solution for ambulance tracking and management, enhancing the efficiency of emergency medical services. Its real-time capabilities, user-friendly interfaces, and comprehensive admin tools make it a valuable asset for healthcare providers and patients alike.
-
-By reducing response times and optimizing resource allocation, SwiftAid contributes to improved patient outcomes in emergency situations.
-
-## Note
-This is just a prototype and can be further improved if developed into a full product. If you're interested in contributing or have any ideas, feel free to fork the repo or give it a star!
+FirstAid is a comprehensive ambulance tracking and management system designed to streamline emergency medical services. This platform provides real-time ambulance dispatch, GPS tracking, and efficient resource management for healthcare providers and emergency services across the region.
 
 ---
 
-© 2024 SwiftAid Ambulance Tracking System. All rights reserved.
-#   A m b u l a n c e - t r a c k e r - s y s t e m  
- 
+## Executive Summary
+
+FirstAid is an integrated emergency medical services platform that combines real-time GPS tracking with intelligent ambulance dispatch algorithms to ensure rapid response to medical emergencies. The system enables seamless coordination between patients, ambulance operators, hospital administrators, and emergency management personnel.
+
+Whether responding to acute medical emergencies such as cardiac events, strokes, traumatic injuries, or managing routine non-emergency medical transports, FirstAid delivers reliable and professional medical assistance with comprehensive real-time monitoring capabilities.
+
+---
+
+## Core Features and Capabilities
+
+### Real-Time Ambulance Tracking
+- GPS-enabled location tracking with continuous position updates
+- Real-time speed monitoring and calculation
+- Interactive map-based tracking interface
+- Historical route documentation and playback
+- Multi-ambulance simultaneous tracking
+
+### Ambulance Booking and Dispatch
+- Streamlined patient information collection
+- Automated ambulance assignment based on proximity and availability
+- Priority-based dispatch (Critical, Urgent, Standard)
+- Estimated Time of Arrival (ETA) calculation and prediction
+- Booking confirmation and status updates
+
+### Hospital Management
+- Automated nearest hospital identification based on GPS coordinates
+- Hospital service availability filtering
+- Distance calculation using Haversine formula
+- Hospital contact information and directions
+- Integration with hospital management systems
+
+### Administrative Dashboard
+- Comprehensive fleet management interface
+- Request status monitoring and updates
+- Real-time ambulance availability tracking
+- Performance analytics and reporting
+- Secondary administrator management (main administrator access)
+- Historical data archival and retrieval
+
+### Driver and Operator Interface
+- Operator authentication and authorization
+- Navigation and route guidance
+- Patient information display
+- Real-time status updates
+- Trip documentation and completion
+
+### Reporting and Documentation
+- PDF report generation for individual requests
+- Patient information and medical history documentation
+- Route and distance records
+- Timestamp and location logging
+- Batch reporting capabilities
+
+---
+
+## Technology Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Backend Framework | Python Flask |
+| Frontend Interface | HTML5, CSS3, JavaScript |
+| Database Management | SQLite |
+| Real-Time Communication | Flask-SocketIO, WebSocket Protocol |
+| Geolocation Services | Google Maps API, OpenCage Geocoding API |
+| Report Generation | ReportLab |
+| Authentication | Werkzeug Security Library |
+| Server Environment | Python Flask Development Server (Port 5001) |
+| Security Protocol | HTTPS with SSL/TLS Encryption |
+| Multi-Platform Support | Flutter Framework (iOS, Android, Web, Desktop) |
+
+---
+
+## System Requirements
+
+- Python 3.6 or higher
+- Minimum 2GB RAM
+- 1GB available disk space
+- Stable internet connection for API access
+- Modern web browser with JavaScript support
+
+---
+
+## Project Structure
+
+Ambulance-tracker-system/
+├── ambulance_tracking_system/
+│ ├── android/
+│ ├── ios/
+│ ├── lib/
+│ ├── web/
+│ ├── windows/
+│ ├── macos/
+│ ├── linux/
+│ └── pubspec.yaml
+├── templates/
+│ ├── driver_login.html
+│ ├── driver_dashboard.html
+│ ├── driver_navigate.html
+│ ├── tracking_search.html
+│ ├── route_map.html
+│ └── tracking_result.html
+├── static/
+│ ├── css/
+│ ├── js/
+│ ├── manifest.json
+│ ├── images/
+│ └── videos/
+├── app.py
+├── route_map.py
+├── users.db
+├── requirements.txt
+├── README.md
+└── .gitignore
+
+
+---
+
+## Database Schema
+
+### ambulance_requests Table
+
+Maintains records of all ambulance service requests.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key, auto-increment identifier |
+| patient_name | TEXT | Full name of patient |
+| contact | TEXT | Contact phone number |
+| pickup_location | TEXT | Geographic address for ambulance pickup |
+| destination | TEXT | Destination hospital or medical facility |
+| ambulance_type | TEXT | Classification of required ambulance |
+| priority | TEXT | Request priority level |
+| status | TEXT | Current request status |
+| created_at | TIMESTAMP | Request creation timestamp |
+| assigned_ambulance_id | INTEGER | Assigned ambulance identifier |
+
+### ambulance_locations Table
+
+Records real-time ambulance positions and movement data.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key, auto-increment identifier |
+| request_id | INTEGER | Foreign key reference to requests |
+| ambulance_id | INTEGER | Ambulance identifier |
+| latitude | REAL | Geographic latitude coordinate |
+| longitude | REAL | Geographic longitude coordinate |
+| speed | REAL | Current velocity in kilometers per hour |
+| distance_covered | REAL | Distance traveled in kilometers |
+| timestamp | TIMESTAMP | Location update timestamp |
+| accuracy | REAL | GPS accuracy measurement in meters |
+
+### admins Table
+
+Manages administrator authentication and authorization.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key, auto-increment identifier |
+| username | TEXT | Administrator username |
+| password_hash | TEXT | Cryptographically hashed password |
+| email | TEXT | Administrator email address |
+| is_main_admin | BOOLEAN | Principal administrator privilege flag |
+| created_at | TIMESTAMP | Account creation timestamp |
+| last_login | TIMESTAMP | Most recent login timestamp |
+
+### ambulances Table
+
+Maintains fleet inventory and status information.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key, auto-increment identifier |
+| ambulance_number | TEXT | Unique registration number |
+| type | TEXT | Ambulance classification |
+| status | TEXT | Current availability status |
+| driver_id | INTEGER | Assigned operator identifier |
+| current_latitude | REAL | Current position latitude |
+| current_longitude | REAL | Current position longitude |
+| fuel_level | REAL | Fuel tank percentage |
+| last_maintenance | TIMESTAMP | Previous maintenance date |
+
+---
+
+## System Architecture
+
+Client Layer (Multi-Platform)
+|-- Web Browser Interface
+|-- Flutter Mobile Application
+|-- Progressive Web Application
+|
+v
+Real-Time Communication Layer
+|-- HTTP Protocol
+|-- WebSocket Protocol
+|-- REST API Endpoints
+|
+v
+Flask Application Server (Port 5001)
+|-- Request Routing
+|-- Business Logic
+|-- Session Management
+|-- WebSocket Event Handling
+|
+v
+Data Layer
+|-- SQLite Database
+|-- User Records
+|-- Request History
+|-- Location Tracking Data
+|-- Administrator Accounts
+|
+v
+External Services
+|-- Google Maps API
+|-- OpenCage Geocoding API
+|-- Coordinates and Routing
+
+
+---
+
+## API Endpoints and Services
+
+### Patient and User Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| / | GET | Home page and landing interface |
+| /booking | GET, POST | Ambulance booking form and submission |
+| /tracking | GET, POST | Ambulance tracking search interface |
+| /track_ambulance | GET | Real-time tracking display |
+
+### Driver and Operator Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /driver_login | GET, POST | Driver authentication |
+| /driver_dashboard | GET | Operator dashboard interface |
+| /driver_navigate/<req_id> | GET | Navigation and routing interface |
+| /update_location | POST | Real-time position update |
+
+### Administrator Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /login | GET, POST | Administrator authentication |
+| /admin_dashboard | GET | Administrative management interface |
+| /update_status/<req_id> | POST | Request status modification |
+| /manage_admins | GET, POST | Secondary administrator management |
+| /analytics | GET | Performance analytics and reporting |
+
+### Utility and Support Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /download_pdf/<req_id> | GET | PDF report generation and download |
+| /find_nearest_hospitals | GET | Hospital location search service |
+| /logout | GET | Session termination |
+| /privacy-policy | GET | Privacy policy documentation |
+| /terms-of-service | GET | Terms and conditions |
+
+---
+
+## Real-Time Communication Features
+
+### WebSocket Events
+
+The system implements real-time event streaming through WebSocket connections:
+
+- ambulance_update: Real-time position and speed data
+- request_status_change: Status modification notifications
+- new_request: Incoming ambulance request alerts
+- eta_update: Updated arrival time calculations
+- driver_arrival: Driver arrival confirmations
+
+### Real-Time Capabilities
+
+- Continuous GPS coordinate transmission
+- Instantaneous speed calculation and display
+- Live request status notifications
+- Dynamic ETA predictions with traffic analysis
+- Support for multiple concurrent tracking sessions
+- Automatic reconnection on connection interruption
+
+---
+
+## Security Implementation
+
+### Authentication and Authorization
+
+| Security Feature | Implementation Method |
+|------------------|----------------------|
+| Password Security | Werkzeug cryptographic hashing with salt |
+| Session Management | Secure Flask sessions with timeout enforcement |
+| Encryption | HTTPS/TLS protocol for all communications |
+| Input Validation | Sanitization and validation to prevent injection attacks |
+| Access Control | Role-based permission management |
+| Data Protection | Encrypted storage of sensitive information |
+| CSRF Prevention | Cross-Site Request Forgery token validation |
+| Rate Limiting | Request throttling for API endpoints |
+
+### Role-Based Access Control
+
+- Patient: Booking and tracking capabilities
+- Driver/Operator: Navigation and status management
+- Administrator: Request management and reporting
+- Primary Administrator: Full system and personnel management
+
+---
+
+## Installation and Deployment
+
+### Prerequisites
+
+- Python 3.6 or higher
+- pip package manager
+- Git version control system
+- Internet connection for API keys
+
+### Installation Steps
+
+#1. Clone the Repository
+git clone https://github.com/manjusankalp-06/Ambulance-tracker-system.git
+cd Ambulance-tracker-system
+
+#2. Create Python Virtual Environment
+python -m venv venv
+source venv/bin/activate
+# On Windows: venv\Scripts\activate
+
+#3. Install Dependencies
+pip install -r requirements.txt
+
+#4. Configure Environment Variables
+#Create .env file in project root directory:
+GOOGLE_MAPS_API_KEY=your_api_key_here
+OPENCAGE_API_KEY=your_api_key_here
+FLASK_ENV=development
+FLASK_DEBUG=True
+
+#5. Initialize Database
+python app.py
+
+#6. Access Application
+Navigate to: https://localhost:5001
